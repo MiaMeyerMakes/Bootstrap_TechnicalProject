@@ -1,0 +1,69 @@
+---
+title: "Untitled"
+author: "M Meyer (22675760)"
+date: "2024-05-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(bayesboot)
+library(rBeta2009)
+
+set.seed(888)
+
+corr.BB <- bayesboot(law, corr, R=3200, use.weights = TRUE)
+hist(corr.BB[,1])
+plot(corr.BB)
+
+
+```
+
+## Own bayes bootstrap
+
+You can also embed plots, for example:
+```{r}
+# weighted function for corr (from boot)
+
+corr.w <- function (d, w = rep(1, nrow(d))/ nrow(d))
+{
+  s <- sum(w)
+  m1 <- sum(d[, 1L] * w)/s
+  m2 <- sum(d[, 2L] * w)/s
+  cross12 <- sum(d[, 1L] * d[, 2L] * w)/s - m1 * m2
+  ssq1 <- sum(d[, 1L] ^ 2 * w)/2 - m1^2
+  ssq2 <- sum(d[, 2L] ^ 2 * w)/2 - m2^2
+  cross12/sqrt(ssq1*ssq2)
+}
+(corr.w(law))
+
+# [1] 0.007981101
+
+## Own Bayesian bootstrap loop with specified alpha
+
+
+
+
+B <- 3200
+nSize <- nrow(law)
+corr.Bd4<- numeric(B)
+alpha <- 1
+set.seed(328)
+for (b in 1:B) {
+  w.d <- rdirichlet(1, par = rep(alpha, nSize))
+  corr.Bd4[b] <- corr.w(law, w=w.d)
+}
+
+hist(corr.Bd4, breaks = 20)
+
+```
+
