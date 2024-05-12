@@ -1,0 +1,150 @@
+---
+title: "Technical Project"
+author: "M Meyer (22675760)"
+date: "2024-05-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(boot, lib.loc = "/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
+library(ggplot2)
+
+library(bayesboot)
+library(rBeta2009)
+library(MASS)
+
+library(gridExtra)
+library(kableExtra)
+library(cluster)
+library(combinat)
+library(maps)
+library(tidyr)
+# install.packages("~/Bootstrap_PracticalProject/robustbase_0.99-2.tgz", repos = NULL, type = .Platform$pkgType)
+# library(robustbase)
+library(datawizard)
+library(viridisLite)
+
+library(bootstrap)
+library(bayesboot)
+library(boot, lib.loc = "/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
+library(simpleboot)
+```
+
+## GENERATE THE TWO DATASETS - DISCRETE AND CONTINUOUS POP. 
+
+###  --- Continuous Population ---
+
+```{r}
+set.seed(12345)
+
+dat <- aircondit7$hours
+nsize <- 100
+bsize <- nsize
+B <- 1000
+
+# make your datasets
+yexp <- rexp(nsize, rate = 1/mean(dat))
+ygeom <- rgeom(nsize, prob = 1/mean(dat))
+
+# note that all of this is written so that you can put it into a function to iterate over it
+
+ogsamp <- yexp # specify your sample (cont or discrete)
+
+statvals <- matrix(0, nrow=B, ncol = 4)
+colnames(statvals) <- c("Mean", "Median", "StdDev", "MedAbsDev")
+
+# perform normal bootstrap on them
+for (b in 1:B)
+{
+  newSelect <- sample(1:nsize, size = bsize, replace = TRUE)
+  newSample <- ogsamp[newSelect]
+  smean <- mean(newSample)
+  smed <- median(newSample)
+  ssd <- sd(newSample)
+  smad <- mad(newSample)
+  statvals[b,] <- c(smean, smed, ssd, smad)
+}
+
+par(mfrow = c(2,2))
+
+hist(statvals[,1], main = "Mean")
+hist(statvals[,2], main = "Median")
+hist(statvals[,3], main = "Standard deviation")
+hist(statvals[,4], main = "Median absolute deviation")
+
+par(mfrow = c(1,1))
+
+# Get the estimated statistics of the bootstrap replications
+apply(statvals, 2, mean)
+# Get the estimated standard errors of the bootstrap replications
+apply(statvals, 2, sd)
+
+data1 <- gather(data.frame(statvals[,1:2]), key = "Statistic", value = "Value")
+
+ggplot(data1, aes(x = Value, fill = Statistic, after_stat(density))) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 20) +
+  geom_density(aes(color = Statistic), alpha = 0.5) + # Overlay density plot
+  scale_fill_manual(values = c("Mean" = "plum1","Median" = "mediumorchid2",
+                               "StdDev" = "cadetblue2", "MedAbsDev" = "steelblue2")) +
+  scale_color_manual(values = c("Mean" = "plum3", "Median" = "mediumorchid4", 
+                                "StdDev" = "cadetblue3", "MedAbsDev" = "steelblue3")) + # Match colors for density plots
+  labs(title = "Histogram of Bootstrap Statistics",
+       x = "Estimated Statistic",
+       y = "Density",
+       fill = "Category",
+       color = "Category") +
+  theme_minimal()
+
+data2 <- gather(data.frame(statvals[,3:4]), key = "Statistic", value = "Value")
+
+ggplot(data2, aes(x = Value, fill = Statistic, after_stat(density))) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 20) +
+  geom_density(aes(color = Statistic), alpha = 0.5) + # Overlay density plot
+  scale_fill_manual(values = c("Mean" = "plum1","Median" = "mediumorchid2",
+                               "StdDev" = "cadetblue2", "MedAbsDev" = "steelblue2")) +
+  scale_color_manual(values = c("Mean" = "plum3", "Median" = "mediumorchid4", 
+                                "StdDev" = "cadetblue3", "MedAbsDev" = "steelblue3")) + # Match colors for density plots
+  labs(title = "Histogram of Bootstrap Statistics",
+       x = "Estimated Statistic",
+       y = "Density",
+       fill = "Category",
+       color = "Category") +
+  theme_minimal()
+
+```
+
+```{r}
+ogsamp <- ygeom # specify your sample (cont or discrete)
+
+statvals <- matrix(0, nrow=B, ncol = 4)
+colnames(statvals) <- c("Mean", "Median", "StdDev", "MedAbsDev")
+
+# perform normal bootstrap on them
+for (b in 1:B)
+{
+  newSelect <- sample(1:nsize, size = bsize, replace = TRUE)
+  newSample <- ogsamp[newSelect]
+  smean <- mean(newSample)
+  smed <- median(newSample)
+  ssd <- sd(newSample)
+  smad <- mad(newSample)
+  statvals[b,] <- c(smean, smed, ssd, smad)
+}
+
+par(mfrow = c(2,2))
+
+hist(statvals[,1], main = "Mean")
+hist(statvals[,2], main = "Median")
+hist(statvals[,3], main = "Standard deviation")
+hist(statvals[,4], main = "Median absolute deviation")
+
+par(mfrow = c(1,1))
+
+# Get the estimated statistics of the bootstrap replications
+apply(statvals, 2, mean)
+# Get the estimated standard errors of the bootstrap replications
+apply(statvals, 2, sd)
+```
+
