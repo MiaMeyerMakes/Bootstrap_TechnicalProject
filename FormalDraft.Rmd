@@ -40,7 +40,7 @@ library(simpleboot)
 set.seed(12345)
 
 dat <- aircondit7$hours
-nsize <- 100
+nsize <- 2000
 bsize <- nsize
 B <- 1000
 
@@ -84,7 +84,7 @@ apply(statvals, 2, sd)
 data1 <- gather(data.frame(statvals[,1:2]), key = "Statistic", value = "Value")
 
 ggplot(data1, aes(x = Value, fill = Statistic, after_stat(density))) +
-  geom_histogram(position = "identity", alpha = 0.5, bins = 20) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 30) +
   geom_density(aes(color = Statistic), alpha = 0.5) + # Overlay density plot
   scale_fill_manual(values = c("Mean" = "plum1","Median" = "mediumorchid2",
                                "StdDev" = "cadetblue2", "MedAbsDev" = "steelblue2")) +
@@ -100,7 +100,7 @@ ggplot(data1, aes(x = Value, fill = Statistic, after_stat(density))) +
 data2 <- gather(data.frame(statvals[,3:4]), key = "Statistic", value = "Value")
 
 ggplot(data2, aes(x = Value, fill = Statistic, after_stat(density))) +
-  geom_histogram(position = "identity", alpha = 0.5, bins = 20) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 30) +
   geom_density(aes(color = Statistic), alpha = 0.5) + # Overlay density plot
   scale_fill_manual(values = c("Mean" = "plum1","Median" = "mediumorchid2",
                                "StdDev" = "cadetblue2", "MedAbsDev" = "steelblue2")) +
@@ -116,35 +116,280 @@ ggplot(data2, aes(x = Value, fill = Statistic, after_stat(density))) +
 ```
 
 ```{r}
-ogsamp <- ygeom # specify your sample (cont or discrete)
+dat <- aircondit7$hours
+nsize <- 100
+nsizes <- c(5,10,20,50,100,120,150,180,200,300,400,500,750,1000,1500,2000,2500,3000,3500,4000,5000,6000,7000,8000,9000,10000,10500,11000,11500,12000, 15000, 20000)
+# nsizes <- c(seq(from = 50, to = 5000, length.out = 20))
+bsize <- nsize
+B <- 400
 
-statvals <- matrix(0, nrow=B, ncol = 4)
-colnames(statvals) <- c("Mean", "Median", "StdDev", "MedAbsDev")
+BootMeans <- numeric()
+BootMeansDevs <- numeric()
+BootMeds <- numeric()
+BootMads <- numeric()
+BootSdev <- numeric()
 
-# perform normal bootstrap on them
-for (b in 1:B)
-{
-  newSelect <- sample(1:nsize, size = bsize, replace = TRUE)
-  newSample <- ogsamp[newSelect]
-  smean <- mean(newSample)
-  smed <- median(newSample)
-  ssd <- sd(newSample)
-  smad <- mad(newSample)
-  statvals[b,] <- c(smean, smed, ssd, smad)
-}
 
-par(mfrow = c(2,2))
+ogsampmeans <- numeric()
+ogsampdevs <- numeric()
+ogsampmeds <- numeric()
+ogsampmad <- numeric()
 
-hist(statvals[,1], main = "Mean")
-hist(statvals[,2], main = "Median")
-hist(statvals[,3], main = "Standard deviation")
-hist(statvals[,4], main = "Median absolute deviation")
+for (n in nsizes) 
+  {
+  bsize <- n
+  # make your datasets
+  yexp <- rexp(n, rate = 1/mean(dat))
+
+  # note that all of this is written so that you can put it into a function to iterate over it
+  
+  ################  --- Continuous Population ---  ###############################
+  
+  ogsamp <- yexp # specify your sample (cont or discrete)
+  
+  statvals <- matrix(0, nrow=B, ncol = 4)
+  colnames(statvals) <- c("Mean", "Median", "StdDev", "MedAbsDev")
+  
+  # get the statistics for the original sample
+  ogsampmeans <- c(ogsampmeans, mean(ogsamp))
+  ogsampdevs <- c(ogsampdevs, sd(ogsamp))
+  ogsampmeds <- c(ogsampmeds, median(ogsamp))
+  ogsampmad <- c(ogsampmad, mad(ogsamp))
+  
+  # perform normal bootstrap on them
+  for (b in 1:B)
+    {
+    newSelect <- sample(1:n, size = bsize, replace = TRUE)
+    newSample <- ogsamp[newSelect]
+    smean <- mean(newSample)
+    smed <- median(newSample)
+    ssd <- sd(newSample)
+    smad <- mad(newSample)
+    statvals[b,] <- c(smean, smed, ssd, smad)
+  }
+  
+  BootMeans <- c(BootMeans, mean(statvals[,1]))
+  BootMeansDevs <- c(BootMeansDevs, sd(statvals[,1]))
+  BootMeds <- c(BootMeds, mean(statvals[,2]))
+  BootSdev <- c(BootSdev, mean(statvals[,3]))
+  BootMads <- c(BootMads, mean(statvals[,4]))
+  }
+
+plot(x=nsizes, y = BootMeans, type="l",
+     main = "Bootstrap estimate", xlab = "Sample size", ylab ="Bootstrap estimate of mean")
+abline(h=mean(dat), lty = 2, col = "magenta3")
+#lines(x=nsizes, y=ogsampmeans,lty = 3, col = "mediumturquoise")
+
+plot(x=nsizes, y = BootMeansDevs, type="l",
+     main = "Volatility of Bootstrap Estimate", xlab = "Sample size", ylab ="Deviation of Bootstrap Estimate")
+
+# par(mfrow = c(2,1))
+
+plot(x=nsizes, y = abs(ogsampmeans-BootMeans), type="l",
+     main = "Mean vs Median", xlab = "Sample size", ylab ="|Difference|")
+lines(x=nsizes,y = abs(ogsampmeds-BootMeds), col = "green3", lty = 2 )
+abline(h=0, lty = 3, col = "cornflowerblue")
+legend("topright", legend = c("Mean", "Median"), lty = c(1,2), col = c("black", "green3"), cex = 0.8)
+
+# plot(x=nsizes, y = abs(ogsampmeds-BootMeds), type="l",
+#      main = "Median: Sample T - Bootstrap T", xlab = "Sample size", ylab ="Difference")
+# abline(h=0, lty = 2, col = "cornflowerblue")
+
+plot(x=nsizes, y = abs(ogsampdevs-BootSdev), type="l",
+     main = "StDev vs. MedianAbsDev", xlab = "Sample size", ylab ="|Difference|")
+lines(x=nsizes,y = abs(ogsampmad-BootMads), col = "green3", lty = 2 )
+abline(h=0, lty = 2, col = "cornflowerblue")
+legend("topright", legend = c("Stdev", "MedianAbsDev"), lty = c(1,2), col = c("black", "green3"), cex = 0.8)
+
+# plot(x=nsizes, y = abs(ogsampmad-BootMads), type="l",
+#      main = "Median Abs Dev: Sample T - Bootstrap T", xlab = "Sample size", ylab ="Differene")
+# abline(h=0, lty = 2, col = "cornflowerblue")
 
 par(mfrow = c(1,1))
+```
 
-# Get the estimated statistics of the bootstrap replications
-apply(statvals, 2, mean)
-# Get the estimated standard errors of the bootstrap replications
-apply(statvals, 2, sd)
+## The effect of the population distribution
+
+```{r}
+set.seed(12345)
+
+dat <- aircondit7$hours
+nsize <- 2000
+bsize <- nsize
+B <- 1000
+
+# make your datasets and center them so they have equal means
+yexp <- rexp(nsize, rate = 1/mean(dat))
+yexp <- yexp
+ygeom <- rgeom(nsize, prob = 1/mean(dat))
+ygeom <- ygeom
+
+theta.mean <- function(x, i) {mean(x[i])}
+theta.med <- function(x, i) {median(x[i])}
+theta.sd <- function(x, i) {sd(x[i])}
+theta.mad <- function(x, i) {mad(x[i])}
+
+myboot <- function(dat, theta,B) {boot(dat, theta, B)}
+
+nonpar_ci_results <- function(yexp, id="normal_exp") 
+{
+  mean.boot <- boot(yexp, theta.mean, B)$t
+  mean.var <- var(mean.boot)
+  mean.ci <- quantile(mean.boot, c(0.025, 0.975)) 
+  mean.ci_width <- mean.ci[2] - mean.ci[1]  # Width
+  mean.ci_symmetry <- (mean.ci[2] + mean.ci[1]) / 2  # Symmetry
+  mean.ci_kurtosis <- kurtosis(mean.boot)$Kurtosis  # Kurtosis
+  
+  med.boot <- boot(yexp, theta.med, B)$t
+  med.var <- var(med.boot)
+  med.ci <- quantile(med.boot, c(0.025, 0.975)) 
+  med.ci_width <- med.ci[2] - med.ci[1]  # Width
+  med.ci_symmetry <- (med.ci[2] + med.ci[1]) / 2  # Symmetry
+  med.ci_kurtosis <- kurtosis(med.boot)$Kurtosis  # Kurtosis
+  
+  sd.boot <- boot(yexp, theta.sd, B)$t
+  sd.var <- var(sd.boot)
+  sd.ci <- quantile(sd.boot, c(0.025, 0.975)) 
+  sd.ci_width <- sd.ci[2] - sd.ci[1]  # Width
+  sd.ci_symmetry <- (sd.ci[2] + sd.ci[1]) / 2  # Symmetry
+  sd.ci_kurtosis <- kurtosis(sd.boot)$Kurtosis  # Kurtosis
+  
+  mad.boot <- boot(yexp, theta.mad, B)$t
+  mad.var <- var(mad.boot)
+  mad.ci <- quantile(mad.boot, c(0.025, 0.975)) 
+  mad.ci_width <- mad.ci[2] - mad.ci[1]  # Width
+  mad.ci_symmetry <- (mad.ci[2] + mad.ci[1]) / 2  # Symmetry
+  mad.ci_kurtosis <- kurtosis(mad.boot)$Kurtosis  # Kurtosis
+  
+  data.frame(id = id,
+             statistic = c("Mean", "Median", "StdDev", "MedAbsDev"),
+             pointest = round(c(mean(mean.boot), mean(med.boot), mean(sd.boot), mean(mad.boot)),5),
+             stat.var = round(c(mean.var, med.var, sd.var, mad.var),5),
+             ci_low = round(c(mean.ci[1], med.ci[1], sd.ci[1], mad.ci[1]),5),
+             ci_up = round(c(mean.ci[2], med.ci[2], sd.ci[2], mad.ci[2]),5),
+             width = round(c(mean.ci_width, med.ci_width, sd.ci_width, mad.ci_width),5),
+             symm = round(c(mean.ci_symmetry, med.ci_symmetry, sd.ci_symmetry, mad.ci_symmetry),5),
+             kurt = round(c(mean.ci_kurtosis, med.ci_kurtosis, sd.ci_kurtosis, mad.ci_kurtosis),5))
+}
+
+nonpar_exp = ci_results(yexp, "nonpar_exp")
+nonpar_geom = ci_results(ygeom, "nonpar_geom")
+
+myboot <- function(dat, theta,B) {
+  lambda_hat <- 1 / mean(dat)
+  # Generate bootstrap samples from the exponential distribution
+  boot_sample <- rexp(length(dat), rate = lambda_hat)
+  # Return the sample mean of each bootstrap sample
+  return(boot(boot_sample, theta, B))
+}
+
+par_ci_results <- function(yexp, id="normal_exp") 
+{
+  mean.boot <- myboot(yexp, theta.mean, B)$t
+  mean.var <- var(mean.boot)
+  mean.ci <- quantile(mean.boot, c(0.025, 0.975)) 
+  mean.ci_width <- mean.ci[2] - mean.ci[1]  # Width
+  mean.ci_symmetry <- (mean.ci[2] + mean.ci[1]) / 2  # Symmetry
+  mean.ci_kurtosis <- kurtosis(mean.boot)$Kurtosis  # Kurtosis
+  
+  med.boot <- myboot(yexp, theta.med, B)$t
+  med.var <- var(med.boot)
+  med.ci <- quantile(med.boot, c(0.025, 0.975)) 
+  med.ci_width <- med.ci[2] - med.ci[1]  # Width
+  med.ci_symmetry <- (med.ci[2] + med.ci[1]) / 2  # Symmetry
+  med.ci_kurtosis <- kurtosis(med.boot)$Kurtosis  # Kurtosis
+  
+  sd.boot <- myboot(yexp, theta.sd, B)$t
+  sd.var <- var(sd.boot)
+  sd.ci <- quantile(sd.boot, c(0.025, 0.975)) 
+  sd.ci_width <- sd.ci[2] - sd.ci[1]  # Width
+  sd.ci_symmetry <- (sd.ci[2] + sd.ci[1]) / 2  # Symmetry
+  sd.ci_kurtosis <- kurtosis(sd.boot)$Kurtosis  # Kurtosis
+  
+  mad.boot <- myboot(yexp, theta.mad, B)$t
+  mad.var <- var(mad.boot)
+  mad.ci <- quantile(mad.boot, c(0.025, 0.975)) 
+  mad.ci_width <- mad.ci[2] - mad.ci[1]  # Width
+  mad.ci_symmetry <- (mad.ci[2] + mad.ci[1]) / 2  # Symmetry
+  mad.ci_kurtosis <- kurtosis(mad.boot)$Kurtosis  # Kurtosis
+  
+  data.frame(id = id,
+             statistic = c("Mean", "Median", "StdDev", "MedAbsDev"),
+             pointest = round(c(mean(mean.boot), mean(med.boot), mean(sd.boot), mean(mad.boot)),5),
+             stat.var = round(c(mean.var, med.var, sd.var, mad.var),5),
+             ci_low = round(c(mean.ci[1], med.ci[1], sd.ci[1], mad.ci[1]),5),
+             ci_up = round(c(mean.ci[2], med.ci[2], sd.ci[2], mad.ci[2]),5),
+             width = round(c(mean.ci_width, med.ci_width, sd.ci_width, mad.ci_width),5),
+             symm = round(c(mean.ci_symmetry, med.ci_symmetry, sd.ci_symmetry, mad.ci_symmetry),5),
+             kurt = round(c(mean.ci_kurtosis, med.ci_kurtosis, sd.ci_kurtosis, mad.ci_kurtosis),5))
+}
+
+par_exp = par_ci_results(yexp, "par_exp")
+
+myboot <- function(dat, theta,B) {
+  lambda_hat <- 1 / mean(dat)
+  # Generate bootstrap samples from the exponential distribution
+  boot_sample <- rgeom(length(dat), prob = lambda_hat)
+  # Return the sample mean of each bootstrap sample
+  return(boot(boot_sample, theta, B))
+}
+
+par_geom = par_ci_results(ygeom, "par_geom")
+
+bayes_ci_results <- function(yexp, id="bayes_exp") 
+{
+  mean.boot <- bayesboot(yexp, mean, B)$V1
+  mean.var <- var(mean.boot)
+  mean.ci <- quantile(mean.boot, c(0.025, 0.975)) 
+  mean.ci_width <- mean.ci[2] - mean.ci[1]  # Width
+  mean.ci_symmetry <- (mean.ci[2] + mean.ci[1]) / 2  # Symmetry
+  mean.ci_kurtosis <- kurtosis(mean.boot)$Kurtosis  # Kurtosis
+  
+  med.boot <- bayesboot(yexp, median, B)$V1
+  med.var <- var(med.boot)
+  med.ci <- quantile(med.boot, c(0.025, 0.975)) 
+  med.ci_width <- med.ci[2] - med.ci[1]  # Width
+  med.ci_symmetry <- (med.ci[2] + med.ci[1]) / 2  # Symmetry
+  med.ci_kurtosis <- kurtosis(med.boot)$Kurtosis  # Kurtosis
+  
+  sd.boot <- bayesboot(yexp, sd, B)$V1
+  sd.var <- var(sd.boot)
+  sd.ci <- quantile(sd.boot, c(0.025, 0.975)) 
+  sd.ci_width <- sd.ci[2] - sd.ci[1]  # Width
+  sd.ci_symmetry <- (sd.ci[2] + sd.ci[1]) / 2  # Symmetry
+  sd.ci_kurtosis <- kurtosis(sd.boot)$Kurtosis  # Kurtosis
+  
+  mad.boot <- bayesboot(yexp, mad, B)$V1
+  mad.var <- var(mad.boot)
+  mad.ci <- quantile(mad.boot, c(0.025, 0.975)) 
+  mad.ci_width <- mad.ci[2] - mad.ci[1]  # Width
+  mad.ci_symmetry <- (mad.ci[2] + mad.ci[1]) / 2  # Symmetry
+  mad.ci_kurtosis <- kurtosis(mad.boot)$Kurtosis  # Kurtosis
+  
+  data.frame(id = id,
+             statistic = c("Mean", "Median", "StdDev", "MedAbsDev"),
+             pointest = round(c(mean(mean.boot), mean(med.boot), mean(sd.boot), mean(mad.boot)),5),
+             stat.var = round(c(mean.var, med.var, sd.var, mad.var),5),
+             ci_low = round(c(mean.ci[1], med.ci[1], sd.ci[1], mad.ci[1]),5),
+             ci_up = round(c(mean.ci[2], med.ci[2], sd.ci[2], mad.ci[2]),5),
+             width = round(c(mean.ci_width, med.ci_width, sd.ci_width, mad.ci_width),5),
+             symm = round(c(mean.ci_symmetry, med.ci_symmetry, sd.ci_symmetry, mad.ci_symmetry),5),
+             kurt = round(c(mean.ci_kurtosis, med.ci_kurtosis, sd.ci_kurtosis, mad.ci_kurtosis),5))
+}
+
+bayes_exp = bayes_ci_results(yexp, id="bayes_exp")
+bayes_geom = bayes_ci_results(ygeom, "bayes_geom")
+
+results <- rbind(nonpar_exp,
+                 par_exp,
+                 bayes_exp,
+                 nonpar_geom,
+                 par_geom,
+                 bayes_geom)
+
+results[results$statistic=="Mean",]
+results[results$statistic=="Median",]
+results[results$statistic=="StdDev",]
+results[results$statistic=="MedAbsDev",]
 ```
 
