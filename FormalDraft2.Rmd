@@ -1,0 +1,137 @@
+---
+title: "Technical Project Formal 2"
+author: "M Meyer (22675760)"
+date: "2024-05-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(boot, lib.loc = "/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
+library(ggplot2)
+
+library(bayesboot)
+library(rBeta2009)
+library(MASS)
+
+library(gridExtra)
+library(kableExtra)
+library(cluster)
+library(combinat)
+library(maps)
+library(tidyr)
+# install.packages("~/Bootstrap_PracticalProject/robustbase_0.99-2.tgz", repos = NULL, type = .Platform$pkgType)
+# library(robustbase)
+library(datawizard)
+library(viridisLite)
+
+library(bootstrap)
+library(bayesboot)
+library(boot, lib.loc = "/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
+library(simpleboot)
+```
+
+## GENERATE THE DATASETS - DISCRETE AND CONTINUOUS POP. 
+
+###  --- Skewed distributions ---
+
+```{r}
+set.seed(12345)
+
+nsize <- 2000
+
+# make your datasets
+ygeom <- rgeom(nsize, prob = 0.02)
+yexp <- rexp(nsize, rate = 0.02)
+mgeom <- mean(ygeom)
+mexp <- mean(yexp)
+
+medgeom <- median(ygeom)
+medexp <- median(yexp)
+
+```
+
+###  --- Symmetric distributions ---
+
+```{r}
+set.seed(12345)
+
+nsize <- 20000
+n <- 100
+
+# make your datasets and 
+# translate exponential to have same mean as geometric
+ybin <- rbinom(n = nsize, size = n, prob = 0.02)
+ygam <- rgamma(n = nsize, shape = 0.1, rate = 0.05)
+mgam <- mean(ygam)
+mbin <- mean(ybin)
+
+medgam <- median(ygam)
+medbin <- median(ybin)
+```
+
+## The effect of the sample size
+
+```{r}
+ybin <- rbinom(n = nsize, size = n, prob = 0.02)
+ygam <- rgamma(n = nsize, shape = 0.1, rate = 0.05)
+mgam <- mean(ygam)
+mbin <- mean(ybin)
+
+set.seed(1235)
+nsize <- 100
+nsizes <- floor(c(5, 10, 20, seq(from = 30, to = 2000, length.out = 100)))
+bsize <- nsize
+B <- 500
+
+BootMeans <- matrix(0, ncol = 2, nrow = length(nsizes))
+colnames(BootMeans) <- c("Binom", "Gamma")
+ogMeans <- matrix(0, ncol = 2, nrow = length(nsizes))
+colnames(ogMeans) <- c("Binom", "Gamma")
+
+statvals <- matrix(0, nrow=B, ncol = 2)
+
+for (n in 1:length(nsizes)) 
+  {
+  bsize <- nsizes[n]
+  # make your datasets
+  ybin0 <- rbinom(n = bsize, size = 100, prob = 0.02)
+  ygam0 <- rgamma(n = bsize, shape = 0.1, rate = 0.05)
+  
+  ogbin <- ybin0
+  oggam <- ygam0
+  
+  # get the statistics for the original sample
+  ogMeans[n,1] <- mean(ybin0)
+  ogMeans[n,2] <- mean(ygam0)
+
+
+  # perform normal bootstrap on them
+  for (b in 1:B)
+    {
+    newSelect <- sample(1:bsize, size = bsize, replace = TRUE)
+    newBinSamp <- ogbin[newSelect]
+    newGamSamp <- oggam[newSelect]
+    statvals[b,] <- c(mean(newBinSamp),mean(newGamSamp))
+  }
+  BootMeans[n,] <- c(mean(statvals[,1]), mean(statvals[,2]))
+  }
+
+plot(x=nsizes, y = ogMeans[,2],type="l",lty = 1, col = "skyblue",
+     main = "Sample estimate", xlab = "Sample size", ylab ="Sample estimate of mean")
+lines(x=nsizes, y = ogMeans[,1], lty = 3, col = "magenta3")
+abline(h=2, lty = 1, col = "grey")
+legend("topright", legend = c("Gamma", "Binom"), lty = c(1,3), col = c("skyblue", "magenta3"))
+
+plot(x=nsizes, y = BootMeans[,2],type="l",lty = 1, col = "skyblue",
+     main = "Bootstrap estimate", xlab = "Sample size", ylab ="Bootstrap estimate of mean")
+lines(x=nsizes, y = BootMeans[,1], lty = 3, col = "magenta3")
+abline(h=2, lty = 1, col = "grey")
+legend("topright", legend = c("Gamma", "Binom"), lty = c(1,3), col = c("skyblue", "magenta3"))
+
+
+
+
+```
+
